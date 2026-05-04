@@ -4,23 +4,23 @@ llm = LLMClient()
 
 def analyze_reviews(reviews):
     prompt = f"""
-    You are analyzing customer reviews.
+You are a strict JSON generator.
 
-    Extract:
-    1. Top 5 reasons customers BUY this product
-    2. Top 5 complaints
-    3. Common use cases
+Extract:
+- Top 5 reasons customers BUY
+- Top 5 complaints
+- Common use cases
 
-    Return JSON:
+Return ONLY valid JSON:
 
-    {{
-      "pros": [],
-      "cons": [],
-      "use_cases": []
-    }}
+{{
+  "pros": [],
+  "cons": [],
+  "use_cases": []
+}}
 
-    Reviews:
-    {reviews}
-    """
+Reviews:
+{reviews}
+"""
 
-    return llm.generate(prompt)
+    return llm.generate_json(prompt)
