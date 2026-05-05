@@ -9,3 +9,5 @@ wheels/
 # Virtual environments
 .venv
 .env
+
+quick_test.py
