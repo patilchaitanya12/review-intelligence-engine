@@ -54,8 +54,34 @@ def compare_products(main, competitors):
 #HELPERS
 
 def normalize_list(items):
-    """Lowercase + strip to improve matching"""
-    return [i.strip().lower() for i in items if i]
+    """
+    Handles:
+    - strings
+    - dicts from LLM
+    - mixed formats
+    """
+
+    normalized = []
+
+    for i in items:
+        if not i:
+            continue
+
+        # Case 1: string
+        if isinstance(i, str):
+            normalized.append(i.strip().lower())
+
+        # Case 2: dict
+        elif isinstance(i, dict):
+            # try common keys
+            value = i.get("text") or i.get("value") or i.get("description")
+
+            if value and isinstance(value, str):
+                normalized.append(value.strip().lower())
+
+        # ignore everything else
+
+    return normalized
 
 
 def ensure_meaningful_output(main, competitors, comparison):
