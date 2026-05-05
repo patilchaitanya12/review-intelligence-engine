@@ -3,156 +3,152 @@ from app.services.llm_client import LLMClient
 llm = LLMClient()
 
 
-def compare_products(main, competitors):
+def compare_products(main: dict, competitors: list) -> dict:
     """
-    Hybrid comparison engine:
-    - deterministic logic
-    - fallback heuristics
-    - LLM-based strategic insights
-    """
+    LLM-first comparison engine.
 
-    #Normalize Inputs
-    main_pros = set(normalize_list(main.get("pros", [])))
-    main_cons = set(normalize_list(main.get("cons", [])))
+    Delegates semantic comparison entirely to the LLM so that
+    near-duplicate phrases across main vs competitor don't bleed
+    into the wrong bucket (the old set-subtraction bug).
 
-    comp_pros = set()
-    comp_cons = set()
+    Args:
+        main: Output from analyzer.py — { pros, cons, use_cases }
+        competitors: List of analyzer.py outputs for competitor products
 
-    for comp in competitors:
-        comp_pros.update(normalize_list(comp.get("pros", [])))
-        comp_cons.update(normalize_list(comp.get("cons", [])))
-
-    #Core Comparison Logic
-    strengths = list(main_pros - comp_pros)
-    weaknesses = list(comp_pros - main_pros)
-
-    shared_issues = list(main_cons & comp_cons)
-    competitor_advantages = list(comp_pros - main_pros)
-
-    market_gaps = competitor_advantages.copy()
-
-    base_comparison = {
-        "strengths": strengths,
-        "weaknesses": weaknesses,
-        "shared_issues": shared_issues,
-        "competitor_advantages": competitor_advantages,
-        "market_gaps": market_gaps
-    }
-
-    #Fallback Intelligence Layer
-    base_comparison = ensure_meaningful_output(main, competitors, base_comparison)
-
-    #LLM Enhancement Layer
-    enhanced = enhance_with_llm(base_comparison)
-
-    return {
-        **base_comparison,
-        **enhanced
-    }
-
-
-#HELPERS
-
-def normalize_list(items):
-    """
-    Handles:
-    - strings
-    - dicts from LLM
-    - mixed formats
+    Returns:
+        dict with keys: strengths, weaknesses, shared_issues,
+                        competitor_advantages, market_gaps,
+                        positioning, summary, improvements, marketing_angles
     """
 
-    normalized = []
+    result = _llm_compare(main, competitors)
 
-    for i in items:
-        if not i:
-            continue
+    if "error" in result:
+        return _fallback(main)
 
-        # Case 1: string
-        if isinstance(i, str):
-            normalized.append(i.strip().lower())
-
-        # Case 2: dict
-        elif isinstance(i, dict):
-            # try common keys
-            value = i.get("text") or i.get("value") or i.get("description")
-
-            if value and isinstance(value, str):
-                normalized.append(value.strip().lower())
-
-        # ignore everything else
-
-    return normalized
+    return _ensure_keys(result, main)
 
 
-def ensure_meaningful_output(main, competitors, comparison):
-    """
-    Ensures output is never empty or useless.
-    Handles:
-    - identical products
-    - weak scraping
-    - fallback scenarios
-    """
-
-    main_pros = main.get("pros", [])
-    main_cons = main.get("cons", [])
-
-    #Case 1: Everything empty → fallback
-    if (
-        not comparison["strengths"]
-        and not comparison["weaknesses"]
-        and not comparison["competitor_advantages"]
-    ):
-        comparison["strengths"] = main_pros[:2]
-        comparison["weaknesses"] = main_cons[:2]
-        comparison["market_gaps"] = main_cons[:2]
-
-    #Case 2: Only strengths missing
-    if not comparison["strengths"]:
-        comparison["strengths"] = main_pros[:2]
-
-    #Case 3: Only weaknesses missing
-    if not comparison["weaknesses"]:
-        comparison["weaknesses"] = main_cons[:2]
-
-    #Case 4: No market gaps
-    if not comparison["market_gaps"]:
-        comparison["market_gaps"] = main_cons[:2]
-
-    return comparison
-
-
-def enhance_with_llm(comparison):
+def _llm_compare(main: dict, competitors: list) -> dict:
     prompt = f"""
-You are a product strategy expert.
+You are a senior product strategy expert performing a competitive analysis.
 
-Given this product comparison data:
+You will be given review analysis data for a MAIN product and one or more
+COMPETITOR products. Your job is to identify:
 
-{comparison}
+1. What the main product genuinely does BETTER than competitors
+2. What the main product genuinely does WORSE than competitors
+3. Issues that exist across all products (shared problems)
+4. Advantages competitors have that the main product lacks
+5. Market gaps nobody is solving well
 
-Generate:
-1. positioning (1 line)
-2. summary (1 line)
-3. 3 improvement ideas
-4. 3 marketing angles
+IMPORTANT RULES:
+- Compare SEMANTICALLY, not by exact wording. 
+  "build quality is great" and "excellent build quality and durability" 
+  are the SAME feature — do NOT list it in both strengths and weaknesses.
+- A feature that exists in BOTH main and competitors is NOT a strength 
+  of the main product — it is a shared baseline. Only list it as a strength 
+  if the main product clearly does it better.
+- Weaknesses must be things the MAIN PRODUCT is worse at, not things 
+  competitors are good at.
+- Be specific. Avoid generic phrases.
 
-Return STRICT JSON:
+--- MAIN PRODUCT ---
+Pros: {main.get("pros", [])}
+Cons: {main.get("cons", [])}
+Use Cases: {main.get("use_cases", [])}
+
+--- COMPETITORS ---
+{_format_competitors(competitors)}
+
+Return ONLY a valid JSON object with this exact structure. No markdown, no explanation:
+
 {{
-  "positioning": "",
-  "summary": "",
-  "improvements": [],
-  "marketing_angles": []
+  "strengths": [
+    "One-line: something the main product does genuinely better than competitors"
+  ],
+  "weaknesses": [
+    "One-line: something the main product is genuinely worse at vs competitors"
+  ],
+  "shared_issues": [
+    "One-line: a problem that exists across main AND competitors"
+  ],
+  "competitor_advantages": [
+    "One-line: a specific edge competitors have over the main product"
+  ],
+  "market_gaps": [
+    "One-line: an unmet need none of the products solve well"
+  ],
+  "positioning": "One sentence: where the main product sits in the market",
+  "summary": "One sentence: the overall competitive verdict",
+  "improvements": [
+    "One-line: specific improvement the main product should make"
+  ],
+  "marketing_angles": [
+    "One-line: a compelling marketing angle grounded in the data"
+  ]
 }}
+
+Rules:
+- Each array must have 2–4 items.
+- strengths and weaknesses must be mutually exclusive — no item should appear in both.
+- Return ONLY the JSON object.
 """
 
-    result = llm.generate_json(prompt)
+    return llm.generate_json(prompt)
 
-    #Safe fallback
-    if "error" in result:
-        return {
-            "positioning": "Competitive product with some differentiation",
-            "summary": "Balanced product with areas of improvement",
-            "improvements": [],
-            "marketing_angles": []
-        }
+
+# ── HELPERS ──────────────────────────────────────────────────────────────────
+
+def _format_competitors(competitors: list) -> str:
+    if not competitors:
+        return "No competitor data provided."
+
+    parts = []
+    for i, comp in enumerate(competitors, 1):
+        parts.append(
+            f"Competitor {i}:\n"
+            f"  Pros: {comp.get('pros', [])}\n"
+            f"  Cons: {comp.get('cons', [])}\n"
+            f"  Use Cases: {comp.get('use_cases', [])}"
+        )
+    return "\n\n".join(parts)
+
+
+def _ensure_keys(result: dict, main: dict) -> dict:
+    """
+    Guarantee every key the UI expects is present.
+    Uses safe defaults rather than crashing.
+    """
+    defaults = {
+        "strengths": main.get("pros", [])[:2],
+        "weaknesses": main.get("cons", [])[:2],
+        "shared_issues": [],
+        "competitor_advantages": [],
+        "market_gaps": main.get("cons", [])[:2],
+        "positioning": "Competitive product with unique strengths",
+        "summary": "Solid product with clear areas for improvement",
+        "improvements": [],
+        "marketing_angles": [],
+    }
+
+    for key, default in defaults.items():
+        if key not in result or not result[key]:
+            result[key] = default
 
     return result
+
+
+def _fallback(main: dict) -> dict:
+    """Hard fallback when LLM call fails entirely."""
+    return {
+        "strengths": main.get("pros", [])[:3],
+        "weaknesses": main.get("cons", [])[:3],
+        "shared_issues": [],
+        "competitor_advantages": [],
+        "market_gaps": main.get("cons", [])[:2],
+        "positioning": "Could not generate positioning — LLM error",
+        "summary": "Could not generate summary — LLM error",
+        "improvements": [],
+        "marketing_angles": [],
+    }
