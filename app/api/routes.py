@@ -13,18 +13,30 @@ def root():
 
 @router.post("/analyze")
 async def analyze(data: AnalyzeRequest):
+
+    #MAIN PRODUCT
     main_data = scrape_amazon_reviews(data.main_product)
-    comp_data = [scrape_amazon_reviews(url) for url in data.competitors]
-
     main_analysis = analyze_reviews(main_data["reviews"])
-    comp_analysis = [analyze_reviews(c["reviews"]) for c in comp_data]
+    print("Main reviews:", len(main_data["reviews"]))
 
-    comparison = compare_products(main_analysis, comp_analysis)
+    #COMPETITORS (single pipeline)
+    competitor_analysis_list = []
+
+    for url in data.competitors:
+        comp_data = scrape_amazon_reviews(url)
+        comp_analysis = analyze_reviews(comp_data["reviews"])
+        competitor_analysis_list.append(comp_analysis)
+
+    #COMPARISON
+    comparison = compare_products(main_analysis, competitor_analysis_list)
+    print("Competitors:", len(competitor_analysis_list))
+    
+    #INSIGHTS
     insights = generate_insights(main_analysis, comparison)
 
     return {
         "main": main_analysis,
-        "competitors": comp_analysis,
+        "competitors": competitor_analysis_list,
         "comparison": comparison,
         "insights": insights
     }
