@@ -10,7 +10,7 @@ Paste your product URL + competitor URLs → get pros/cons, competitive strength
 
 | Stage | What happens |
 |---|---|
-| **Scrape** | Fetches Amazon reviews for your product and competitors |
+| **Scrape** | Fetches Amazon reviews via SerpAPI with HTTP fallback |
 | **Analyze** | LLM extracts pros, cons, and use cases from raw reviews |
 | **Compare** | Semantic competitive comparison (strengths, weaknesses, market gaps) |
 | **Insights** | Generates improvements, marketing angles, target audience, risk flags |
@@ -28,6 +28,11 @@ Paste your product URL + competitor URLs → get pros/cons, competitive strength
 **AI / LLM**
 - OpenAI-compatible API (env-configured)
 - JSON-mode structured prompting
+
+**Data Collection**
+- SerpAPI (Google engine) — primary review source
+- httpx + BeautifulSoup4 — fallback scraper
+- Realistic sample data — final fallback if both fail
 
 **Frontend**
 - React + Vite
@@ -91,16 +96,18 @@ Create a `.env` file in the root:
 LLM_API_KEY=your_api_key_here
 LLM_BASE_URL=https://api.openai.com/v1
 LLM_MODEL=gpt-4o
+SERPAPI_KEY=your_serpapi_key_here
 ```
 
-Works with any OpenAI-compatible API (OpenAI, Together, Groq, Ollama, etc.)
+- LLM: works with any OpenAI-compatible API (OpenAI, Together, Groq, Ollama, etc.)
+- SerpAPI: free account at [serpapi.com](https://serpapi.com) gives 100 searches/month — enough for demos and testing
 
 ### 3. Run the backend
 
 ```bash
 uv venv
 source .venv/bin/activate       # Windows: .venv\Scripts\activate
-uv add fastapi uvicorn httpx beautifulsoup4
+uv add fastapi uvicorn httpx beautifulsoup4 python-dotenv google-search-results
 uv run uvicorn app.main:app --reload
 ```
 
@@ -189,8 +196,8 @@ The original comparator used Python set subtraction on strings. Near-duplicate p
 **Why Server-Sent Events (SSE)?**
 The pipeline takes 15–30 seconds. Without streaming, the UI would show nothing until completion. SSE lets the frontend display live progress logs so the user knows exactly what stage is running.
 
-**Why fallback reviews?**
-Amazon aggressively blocks automated scraping. The scraper tries two strategies (listing page + reviews page) before falling back to realistic sample data. The entire LLM pipeline still runs — the architecture is production-ready; only the data source is mocked.
+**Why SerpAPI over direct scraping?**
+Amazon aggressively blocks direct HTTP scrapers. SerpAPI's Google engine searches for Amazon review content and returns indexed snippets — no blocks, no CAPTCHAs, works on the free plan. The scraper falls back to direct HTTP, then to sample data, so the pipeline never crashes.
 
 ---
 
@@ -198,9 +205,9 @@ Amazon aggressively blocks automated scraping. The scraper tries two strategies 
 
 | Limitation | Fix |
 |---|---|
-| Amazon blocks scraping | Replace with BrightData / ScrapingBee / Playwright |
+| SerpAPI free plan limited to 100 searches/month | Upgrade plan or switch to BrightData for production |
 | No data persistence | Add MongoDB to save analysis history |
-| No caching | Add Redis — same URL analyzed twice hits the LLM again |
+| No caching | Add Redis — same URL analyzed twice hits the API again |
 | Single-page results | Add charts (Recharts) + PDF export |
 | Revenue estimation missing | Combine BSR rank + review volume for monthly revenue estimate |
 
@@ -214,6 +221,8 @@ fastapi
 uvicorn
 httpx
 beautifulsoup4
+python-dotenv
+google-search-results
 ```
 
 **JavaScript**
