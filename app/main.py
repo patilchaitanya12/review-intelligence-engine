@@ -3,6 +3,7 @@ from app.api.routes import router
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(title="Review Intelligence Engine")
+app = FastAPI(docs_url="/docs", redoc_url="/redoc")
 
 app.add_middleware(
     CORSMiddleware,
