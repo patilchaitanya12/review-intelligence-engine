@@ -61,7 +61,7 @@ def fetch_via_serpapi(asin: str) -> list:
     # Use Google search to find Amazon reviews — free plan compatible
     params = {
         "engine": "google",
-        "q": f"amazon.in {asin} customer reviews",
+        "q": f'site:amazon.in/dp/{asin} reviews',
         "api_key": SERPAPI_KEY,
         "num": "10",
     }
