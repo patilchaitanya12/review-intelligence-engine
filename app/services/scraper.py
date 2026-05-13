@@ -4,6 +4,7 @@ import random
 import httpx
 from bs4 import BeautifulSoup
 from app.core.config import SERPAPI_KEY
+from app.services.url_normalizer import normalize_url
 
 try:
     from serpapi import GoogleSearch
@@ -145,26 +146,34 @@ def clean_reviews(reviews: list) -> list:
 def scrape_amazon_reviews(url: str) -> dict:
     try:
         print("\n--- SCRAPER START ---")
-
-        resolved_url = resolve_url(url)
-        print("Resolved URL:", resolved_url)
-
-        asin = extract_asin(resolved_url)
-        print("ASIN:", asin)
-
+        print("Raw URL:", url)
+ 
+        # Normalize the URL first
+        normalized = normalize_url(url)
+        platform = normalized["platform"]
+        clean_url = normalized["normalized_url"]
+        asin = normalized.get("asin")
+ 
+        print(f"Platform : {platform}")
+        print(f"Clean URL: {clean_url}")
+        print(f"ASIN     : {asin}")
+ 
+        if normalized.get("error"):
+            print(f"Normalizer warning: {normalized['error']}")
+ 
         if not asin:
-            raise Exception("ASIN extraction failed")
-
+            raise Exception(f"Could not extract ASIN from URL: {clean_url}")
+ 
         reviews = []
-
-        # Strategy 1: SerpAPI (primary)
+ 
+        # Strategy 1: SerpAPI
         try:
             print("Trying strategy 1: SerpAPI...")
             reviews = fetch_via_serpapi(asin)
             print(f"SerpAPI got {len(reviews)} reviews ✅")
         except Exception as e:
             print(f"SerpAPI failed: {e}")
-
+ 
         # Strategy 2: Direct HTTP
         if len(reviews) < 3:
             try:
@@ -173,20 +182,22 @@ def scrape_amazon_reviews(url: str) -> dict:
                 print(f"HTTP got {len(reviews)} reviews ✅")
             except Exception as e:
                 print(f"HTTP failed: {e}")
-
+ 
         reviews = clean_reviews(reviews)
         print(f"Final review count: {len(reviews)}")
-
+ 
         if len(reviews) < 3:
             raise Exception("All strategies exhausted")
-
+ 
         return {
             "title": f"ASIN: {asin}",
             "rating": "N/A",
             "reviews": reviews[:30],
-            "source": "scraped"
+            "source": "scraped",
+            "platform": platform,
+            "normalized_url": clean_url,
         }
-
+ 
     except Exception as e:
         print("SCRAPER ERROR:", str(e))
         print("--- USING FALLBACK DATA ---")
