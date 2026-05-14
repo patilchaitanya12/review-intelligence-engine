@@ -1,83 +1,45 @@
 import { useState, useRef, useEffect } from "react";
+import { streamAnalysis } from "./api";
 
 const DARK = {
-  bg: "#080C14",
-  surface: "#0D1420",
-  surfaceHover: "#111B2E",
-  border: "#1A2540",
-  borderHover: "#243355",
-  text: "#E2E8F5",
-  textSub: "#6B7FA3",
-  textMuted: "#3D4F72",
-  accent: "#4C9EEB",
-  accentGlow: "rgba(76,158,235,0.15)",
-  accentSoft: "rgba(76,158,235,0.08)",
-  success: "#34D399",
-  successBg: "rgba(52,211,153,0.08)",
-  error: "#F87171",
-  logBg: "#050810",
-  logBorder: "#111B2E",
-  logText: "#7AADCF",
-  cursor: "#4C9EEB",
-  pill: "rgba(76,158,235,0.12)",
-  pillText: "#4C9EEB",
-  tag: "#1A2540",
-  warning: "#FBBF24",
-  warningBg: "rgba(251,191,36,0.08)",
-  purple: "#A78BFA",
-  purpleBg: "rgba(167,139,250,0.08)",
-  orange: "#FB923C",
-  orangeBg: "rgba(251,146,60,0.08)",
+  bg: "#080C14", surface: "#0D1420", surfaceHover: "#111B2E",
+  border: "#1A2540", borderHover: "#243355", text: "#E2E8F5",
+  textSub: "#6B7FA3", textMuted: "#3D4F72", accent: "#4C9EEB",
+  accentGlow: "rgba(76,158,235,0.15)", accentSoft: "rgba(76,158,235,0.08)",
+  success: "#34D399", successBg: "rgba(52,211,153,0.08)", error: "#F87171",
+  logBg: "#050810", logBorder: "#111B2E", logText: "#7AADCF", cursor: "#4C9EEB",
+  pill: "rgba(76,158,235,0.12)", pillText: "#4C9EEB", tag: "#1A2540",
+  warning: "#FBBF24", warningBg: "rgba(251,191,36,0.08)",
+  purple: "#A78BFA", purpleBg: "rgba(167,139,250,0.08)",
+  orange: "#FB923C", orangeBg: "rgba(251,146,60,0.08)",
 };
 
 const LIGHT = {
-  bg: "#F0F4FA",
-  surface: "#FFFFFF",
-  surfaceHover: "#F7FAFF",
-  border: "#DDE5F0",
-  borderHover: "#C2D0E8",
-  text: "#0F1A2E",
-  textSub: "#5A6E96",
-  textMuted: "#A0B0CC",
-  accent: "#2B7FD4",
-  accentGlow: "rgba(43,127,212,0.12)",
-  accentSoft: "rgba(43,127,212,0.06)",
-  success: "#059669",
-  successBg: "rgba(5,150,105,0.07)",
-  error: "#DC2626",
-  logBg: "#F8FAFD",
-  logBorder: "#DDE5F0",
-  logText: "#2B6CB0",
-  cursor: "#2B7FD4",
-  pill: "rgba(43,127,212,0.10)",
-  pillText: "#2B7FD4",
-  tag: "#EEF2FA",
-  warning: "#D97706",
-  warningBg: "rgba(217,119,6,0.07)",
-  purple: "#7C3AED",
-  purpleBg: "rgba(124,58,237,0.07)",
-  orange: "#EA580C",
-  orangeBg: "rgba(234,88,12,0.07)",
+  bg: "#F0F4FA", surface: "#FFFFFF", surfaceHover: "#F7FAFF",
+  border: "#DDE5F0", borderHover: "#C2D0E8", text: "#0F1A2E",
+  textSub: "#5A6E96", textMuted: "#A0B0CC", accent: "#2B7FD4",
+  accentGlow: "rgba(43,127,212,0.12)", accentSoft: "rgba(43,127,212,0.06)",
+  success: "#059669", successBg: "rgba(5,150,105,0.07)", error: "#DC2626",
+  logBg: "#F8FAFD", logBorder: "#DDE5F0", logText: "#2B6CB0", cursor: "#2B7FD4",
+  pill: "rgba(43,127,212,0.10)", pillText: "#2B7FD4", tag: "#EEF2FA",
+  warning: "#D97706", warningBg: "rgba(217,119,6,0.07)",
+  purple: "#7C3AED", purpleBg: "rgba(124,58,237,0.07)",
+  orange: "#EA580C", orangeBg: "rgba(234,88,12,0.07)",
 };
 
-function useTheme(dark) {
-  return dark ? DARK : LIGHT;
-}
+function useTheme(dark) { return dark ? DARK : LIGHT; }
 
 function injectFonts() {
   if (document.getElementById("ri-fonts")) return;
   const link = document.createElement("link");
   link.id = "ri-fonts";
   link.rel = "stylesheet";
-  link.href =
-    "https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Sora:wght@300;400;500;600;700&display=swap";
+  link.href = "https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Sora:wght@300;400;500;600;700&display=swap";
   document.head.appendChild(link);
 }
 
 const SEVERITY_COLOR = (severity, t) => ({
-  high: t.error,
-  medium: t.warning,
-  low: t.success,
+  high: t.error, medium: t.warning, low: t.success,
 }[severity?.toLowerCase()] || t.textSub);
 
 export default function App() {
@@ -94,18 +56,16 @@ export default function App() {
   useEffect(() => { injectFonts(); }, []);
 
   useEffect(() => {
-    if (logRef.current) {
-      logRef.current.scrollTop = logRef.current.scrollHeight;
-    }
+    if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
   }, [logs]);
 
   const formatItem = (item) => {
     if (typeof item === "string") return item;
-    if (typeof item === "object")
-      return item.description || item.text || JSON.stringify(item);
+    if (typeof item === "object") return item.description || item.text || JSON.stringify(item);
     return "";
   };
 
+  // ── ANALYZE ────────────────────────────────────────────────────────────────
   const handleAnalyze = async () => {
     setLogs([]);
     setData(null);
@@ -118,35 +78,11 @@ export default function App() {
     };
 
     try {
-      const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
-      const response = await fetch(`${API_URL}/analyze-stream`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder("utf-8");
-
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value);
-        const lines = chunk.split("\n");
-
-        for (let line of lines) {
-          if (line.startsWith("data: ")) {
-            const parsed = JSON.parse(line.replace("data: ", ""));
-            if (parsed.log) setLogs((prev) => [...prev, parsed.log]);
-            if (parsed.result) {
-              setData(parsed.result);
-              setLoading(false);
-              setLogDone(true);
-            }
-          }
-        }
-      }
+      await streamAnalysis(
+        payload,
+        (log) => setLogs((prev) => [...prev, log]),
+        (result) => { setData(result); setLoading(false); setLogDone(true); }
+      );
     } catch {
       setLogs((prev) => [...prev, "ERR  Connection failed"]);
       setLoading(false);
@@ -154,6 +90,43 @@ export default function App() {
     }
   };
 
+  // ── PDF EXPORT ─────────────────────────────────────────────────────────────
+  const handleExportPDF = () => {
+    // Inject print-only styles
+    const style = document.createElement("style");
+    style.id = "ri-print-style";
+    style.innerHTML = `
+      @media print {
+        .ri-header { display: none !important; }
+        .ri-card { display: none !important; }
+        .ri-terminal { display: none !important; }
+        .ri-links { display: none !important; }
+        .ri-export-row { display: none !important; }
+        .ri-section-title { color: #333 !important; -webkit-print-color-adjust: exact; }
+        .ri-list-card, .ri-strategy, .ri-improve-card,
+        .ri-angle-card, .ri-audience-card, .ri-risk-card,
+        .ri-win-item { 
+          box-shadow: none !important;
+          border: 1px solid #ddd !important;
+          break-inside: avoid;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+        body { background: white !important; }
+        .ri-root { padding: 8px 16px !important; }
+        .ri-wrap { max-width: 100% !important; }
+      }
+    `;
+    document.head.appendChild(style);
+    window.print();
+    // Remove after dialog closes
+    setTimeout(() => {
+      const s = document.getElementById("ri-print-style");
+      if (s) s.remove();
+    }, 1500);
+  };
+
+  // ── CSS ────────────────────────────────────────────────────────────────────
   const css = `
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body { background: ${t.bg}; color: ${t.text}; font-family: 'Sora', sans-serif; transition: background 0.3s, color 0.3s; }
@@ -190,12 +163,17 @@ export default function App() {
     .ri-input::placeholder { color: ${t.textMuted}; }
     .ri-input:focus { border-color: ${t.accent}; box-shadow: 0 0 0 3px ${t.accentSoft}; }
 
-    /* BUTTON */
+    /* BUTTONS */
     .ri-btn { display: inline-flex; align-items: center; gap: 8px; background: ${t.accent}; color: #fff; border: none; border-radius: 10px; padding: 12px 24px; font-size: 14px; font-weight: 600; font-family: 'Sora', sans-serif; cursor: pointer; transition: all 0.2s; letter-spacing: 0.3px; margin-top: 8px; box-shadow: 0 4px 20px ${t.accentGlow}; }
     .ri-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 28px ${t.accentGlow}; }
     .ri-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
     .ri-btn-dot { width: 7px; height: 7px; border-radius: 50%; background: rgba(255,255,255,0.7); animation: blink 1s ease-in-out infinite; }
     @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0.2; } }
+
+    /* EXPORT BUTTON */
+    .ri-btn-export { display: inline-flex; align-items: center; gap: 8px; background: transparent; color: ${t.textSub}; border: 1px solid ${t.border}; border-radius: 10px; padding: 9px 18px; font-size: 13px; font-weight: 600; font-family: 'Sora', sans-serif; cursor: pointer; transition: all 0.2s; }
+    .ri-btn-export:hover { border-color: ${t.accent}; color: ${t.accent}; background: ${t.accentSoft}; }
+    .ri-export-row { display: flex; justify-content: flex-end; margin-bottom: 16px; }
 
     /* TERMINAL */
     .ri-terminal { background: ${t.logBg}; border: none; border-radius: 16px; overflow: hidden; margin-bottom: 16px; box-shadow: ${dark ? "0 1px 3px rgba(0,0,0,0.5), 0 8px 32px rgba(0,0,0,0.35)" : "0 1px 3px rgba(15,26,46,0.06), 0 8px 24px rgba(15,26,46,0.08)"}; }
@@ -214,7 +192,7 @@ export default function App() {
     .ri-cursor { display: inline-block; width: 7px; height: 13px; background: ${t.cursor}; margin-left: 2px; vertical-align: middle; animation: blink 1s step-end infinite; border-radius: 1px; }
 
     /* QUICK LINKS */
-    .ri-links { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 32px; }
+    .ri-links { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
     .ri-link-chip { display: inline-flex; align-items: center; gap: 6px; background: ${t.pill}; color: ${t.pillText}; border: 1px solid ${dark ? "rgba(76,158,235,0.2)" : "rgba(43,127,212,0.2)"}; border-radius: 20px; padding: 6px 14px; font-size: 12px; font-weight: 600; text-decoration: none; transition: all 0.2s; letter-spacing: 0.3px; }
     .ri-link-chip:hover { background: ${t.accentGlow}; transform: translateY(-1px); }
 
@@ -311,7 +289,6 @@ export default function App() {
                 <div className="ri-subtitle">Turn reviews into actionable insights</div>
               </div>
             </div>
-
             <div className="ri-toggle" onClick={() => setDark(!dark)}>
               <span className="ri-toggle-label">{dark ? "Dark" : "Light"}</span>
               <div className="ri-toggle-track">
@@ -323,7 +300,6 @@ export default function App() {
           {/* INPUT CARD */}
           <div className="ri-card">
             <div className="ri-card-label">Configure Analysis</div>
-
             <div className="ri-input-wrap">
               <label className="ri-input-label">Main Product URL</label>
               <input
@@ -333,7 +309,6 @@ export default function App() {
                 onChange={(e) => setMainUrl(e.target.value)}
               />
             </div>
-
             <div className="ri-input-wrap">
               <label className="ri-input-label">Competitor URLs — one per line</label>
               <textarea
@@ -344,13 +319,8 @@ export default function App() {
                 onChange={(e) => setCompetitors(e.target.value)}
               />
             </div>
-
             <button className="ri-btn" onClick={handleAnalyze} disabled={loading}>
-              {loading ? (
-                <><div className="ri-btn-dot" /> Analyzing</>
-              ) : (
-                <>→ Run Analysis</>
-              )}
+              {loading ? (<><div className="ri-btn-dot" /> Analyzing</>) : (<>→ Run Analysis</>)}
             </button>
           </div>
 
@@ -371,9 +341,7 @@ export default function App() {
                 {logs.map((log, i) => (
                   <div key={i} className="ri-log-line">
                     <span className="ri-log-ts">{ts(i)}</span>
-                    <span className={log.startsWith("ERR") ? "ri-log-err" : "ri-log-text"}>
-                      {log}
-                    </span>
+                    <span className={log.startsWith("ERR") ? "ri-log-err" : "ri-log-text"}>{log}</span>
                   </div>
                 ))}
                 {loading && (
@@ -392,71 +360,56 @@ export default function App() {
               {/* QUICK LINKS */}
               <div className="ri-links" style={{ marginTop: 8 }}>
                 {mainUrl && (
-                  <a className="ri-link-chip" href={mainUrl} target="_blank" rel="noreferrer">
-                    ↗ Main Product
-                  </a>
+                  <a className="ri-link-chip" href={mainUrl} target="_blank" rel="noreferrer">↗ Main Product</a>
                 )}
                 {competitors.split("\n").filter(Boolean).map((url, i) => (
-                  <a key={i} className="ri-link-chip" href={url} target="_blank" rel="noreferrer">
-                    ↗ Competitor {i + 1}
-                  </a>
+                  <a key={i} className="ri-link-chip" href={url} target="_blank" rel="noreferrer">↗ Competitor {i + 1}</a>
                 ))}
               </div>
 
-              {/* PROS / CONS */}
-              <div className="ri-section-title">
-                Product Insights <div className="ri-section-line" />
+              {/* EXPORT BUTTON */}
+              <div className="ri-export-row">
+                <button className="ri-btn-export" onClick={handleExportPDF}>
+                  ↓ Export PDF
+                </button>
               </div>
+
+              {/* PROS / CONS */}
+              <div className="ri-section-title">Product Insights <div className="ri-section-line" /></div>
               <div className="ri-grid">
                 <div className="ri-list-card ri-pros">
                   <div className="ri-list-card-title">✓ Pros</div>
                   {data.main.pros.map((p, i) => (
-                    <div key={i} className="ri-list-item">
-                      <div className="ri-list-dot" />
-                      {formatItem(p)}
-                    </div>
+                    <div key={i} className="ri-list-item"><div className="ri-list-dot" />{formatItem(p)}</div>
                   ))}
                 </div>
                 <div className="ri-list-card ri-cons">
                   <div className="ri-list-card-title">✕ Cons</div>
                   {data.main.cons.map((c, i) => (
-                    <div key={i} className="ri-list-item">
-                      <div className="ri-list-dot" />
-                      {formatItem(c)}
-                    </div>
+                    <div key={i} className="ri-list-item"><div className="ri-list-dot" />{formatItem(c)}</div>
                   ))}
                 </div>
               </div>
 
               {/* COMPARISON */}
-              <div className="ri-section-title">
-                Competitive Comparison <div className="ri-section-line" />
-              </div>
+              <div className="ri-section-title">Competitive Comparison <div className="ri-section-line" /></div>
               <div className="ri-grid">
                 <div className="ri-list-card ri-strengths">
                   <div className="ri-list-card-title">↑ Strengths</div>
                   {data.comparison.strengths.map((s, i) => (
-                    <div key={i} className="ri-list-item">
-                      <div className="ri-list-dot" />
-                      {formatItem(s)}
-                    </div>
+                    <div key={i} className="ri-list-item"><div className="ri-list-dot" />{formatItem(s)}</div>
                   ))}
                 </div>
                 <div className="ri-list-card ri-weaknesses">
                   <div className="ri-list-card-title">↓ Weaknesses</div>
                   {data.comparison.weaknesses.map((w, i) => (
-                    <div key={i} className="ri-list-item">
-                      <div className="ri-list-dot" />
-                      {formatItem(w)}
-                    </div>
+                    <div key={i} className="ri-list-item"><div className="ri-list-dot" />{formatItem(w)}</div>
                   ))}
                 </div>
               </div>
 
               {/* STRATEGY */}
-              <div className="ri-section-title">
-                Strategy <div className="ri-section-line" />
-              </div>
+              <div className="ri-section-title">Strategy <div className="ri-section-line" /></div>
               <div className="ri-strategy">
                 <div className="ri-strategy-row">
                   <div className="ri-strategy-label">Positioning</div>
@@ -468,16 +421,12 @@ export default function App() {
                 </div>
               </div>
 
-              {/* ── INSIGHTS ── */}
+              {/* INSIGHTS */}
               {insights && Object.keys(insights).length > 0 && (
                 <>
-
-                  {/* IMPROVEMENTS */}
                   {insights.improvements?.length > 0 && (
                     <>
-                      <div className="ri-section-title">
-                        Improvements <div className="ri-section-line" />
-                      </div>
+                      <div className="ri-section-title">Improvements <div className="ri-section-line" /></div>
                       <div className="ri-grid">
                         {insights.improvements.map((item, i) => (
                           <div key={i} className="ri-improve-card">
@@ -490,12 +439,9 @@ export default function App() {
                     </>
                   )}
 
-                  {/* MARKETING ANGLES */}
                   {insights.marketing_angles?.length > 0 && (
                     <>
-                      <div className="ri-section-title">
-                        Marketing Angles <div className="ri-section-line" />
-                      </div>
+                      <div className="ri-section-title">Marketing Angles <div className="ri-section-line" /></div>
                       <div className="ri-grid">
                         {insights.marketing_angles.map((item, i) => (
                           <div key={i} className="ri-angle-card">
@@ -507,14 +453,10 @@ export default function App() {
                     </>
                   )}
 
-                  {/* TARGET AUDIENCE + KEY DIFFERENTIATORS */}
                   <div className="ri-grid" style={{ marginTop: 32 }}>
-
                     {insights.target_audience?.length > 0 && (
                       <div>
-                        <div className="ri-section-title" style={{ marginTop: 0 }}>
-                          Target Audience <div className="ri-section-line" />
-                        </div>
+                        <div className="ri-section-title" style={{ marginTop: 0 }}>Target Audience <div className="ri-section-line" /></div>
                         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                           {insights.target_audience.map((item, i) => (
                             <div key={i} className="ri-audience-card">
@@ -525,17 +467,13 @@ export default function App() {
                         </div>
                       </div>
                     )}
-
                     {insights.key_differentiators?.length > 0 && (
                       <div>
-                        <div className="ri-section-title" style={{ marginTop: 0 }}>
-                          Key Differentiators <div className="ri-section-line" />
-                        </div>
+                        <div className="ri-section-title" style={{ marginTop: 0 }}>Key Differentiators <div className="ri-section-line" /></div>
                         <div className="ri-list-card" style={{ padding: "16px 20px" }}>
                           {insights.key_differentiators.map((item, i) => (
                             <div key={i} className="ri-diff-item">
-                              <span className="ri-diff-badge">#{i + 1}</span>
-                              {item}
+                              <span className="ri-diff-badge">#{i + 1}</span>{item}
                             </div>
                           ))}
                         </div>
@@ -543,30 +481,20 @@ export default function App() {
                     )}
                   </div>
 
-                  {/* RISK FLAGS */}
                   {insights.risk_flags?.length > 0 && (
                     <>
-                      <div className="ri-section-title">
-                        Risk Flags <div className="ri-section-line" />
-                      </div>
+                      <div className="ri-section-title">Risk Flags <div className="ri-section-line" /></div>
                       <div className="ri-grid">
                         {insights.risk_flags.map((item, i) => (
                           <div key={i} className="ri-risk-card">
                             <div className="ri-risk-header">
                               <div className="ri-risk-label">{item.risk}</div>
                               <span style={{
-                                fontSize: 10,
-                                fontWeight: 700,
-                                letterSpacing: "0.8px",
-                                textTransform: "uppercase",
-                                color: SEVERITY_COLOR(item.severity, t),
+                                fontSize: 10, fontWeight: 700, letterSpacing: "0.8px",
+                                textTransform: "uppercase", color: SEVERITY_COLOR(item.severity, t),
                                 background: `${SEVERITY_COLOR(item.severity, t)}18`,
-                                borderRadius: 6,
-                                padding: "2px 8px",
-                                flexShrink: 0,
-                              }}>
-                                {item.severity}
-                              </span>
+                                borderRadius: 6, padding: "2px 8px", flexShrink: 0,
+                              }}>{item.severity}</span>
                             </div>
                             <div className="ri-risk-mitigation">{item.mitigation}</div>
                           </div>
@@ -575,23 +503,18 @@ export default function App() {
                     </>
                   )}
 
-                  {/* QUICK WINS */}
                   {insights.quick_wins?.length > 0 && (
                     <>
-                      <div className="ri-section-title">
-                        Quick Wins <div className="ri-section-line" />
-                      </div>
+                      <div className="ri-section-title">Quick Wins <div className="ri-section-line" /></div>
                       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                         {insights.quick_wins.map((item, i) => (
                           <div key={i} className="ri-win-item">
-                            <span className="ri-win-num">0{i + 1}</span>
-                            {item}
+                            <span className="ri-win-num">0{i + 1}</span>{item}
                           </div>
                         ))}
                       </div>
                     </>
                   )}
-
                 </>
               )}
             </>
