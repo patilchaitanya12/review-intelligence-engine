@@ -148,6 +148,30 @@ export default function App() {
         .ri-root { padding: 8px 16px !important; }
         .ri-wrap { max-width: 100% !important; }
       }
+      /* Key Differentiators */
+      .ri-diff-item {
+        color: #0F1A2E !important;
+        border-bottom: 1px solid #DDE5F0 !important;
+      }
+      
+      /* Risk Flags */
+      .ri-risk-label {
+        color: #0F1A2E !important;
+      }
+      .ri-risk-mitigation {
+        color: #5A6E96 !important;
+      }
+      
+      /* Risk severity badge — inline styles need !important */
+      .ri-risk-card span {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      
+      /* Quick Wins */
+      .ri-win-item {
+        color: #0F1A2E !important;
+      }
     `;
     document.head.appendChild(style);
     window.print();
