@@ -1,16 +1,19 @@
 import re
-import os
+import logging
 import random
 import httpx
 from bs4 import BeautifulSoup
 from app.core.config import SERPAPI_KEY
 from app.services.url_normalizer import normalize_url
 
+logger = logging.getLogger(__name__)
+
 try:
     from serpapi import GoogleSearch
     SERPAPI_AVAILABLE = True
 except ImportError:
     SERPAPI_AVAILABLE = False
+    logger.warning("serpapi package not installed — SerpAPI strategy disabled")
 
 USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
@@ -29,28 +32,7 @@ def _get_headers():
     }
 
 
-# ── URL + ASIN ────────────────────────────────────────────────────────────────
-
-def resolve_url(url: str) -> str:
-    try:
-        response = httpx.get(url, headers=_get_headers(), follow_redirects=True, timeout=10)
-        return str(response.url)
-    except Exception:
-        return url
-
-def extract_asin(url: str):
-    patterns = [
-        r"/dp/([A-Z0-9]{10})",
-        r"/gp/product/([A-Z0-9]{10})",
-        r"/product/([A-Z0-9]{10})",
-        r"/([A-Z0-9]{10})(?:[/?]|$)"
-    ]
-    for pattern in patterns:
-        match = re.search(pattern, url)
-        if match:
-            return match.group(1)
-    return None
-
+# ── STRATEGY 1: SerpAPI ───────────────────────────────────────────────────────
 
 def fetch_via_serpapi(asin: str) -> list:
     if not SERPAPI_AVAILABLE:
@@ -58,38 +40,55 @@ def fetch_via_serpapi(asin: str) -> list:
     if not SERPAPI_KEY:
         raise Exception("SERPAPI_KEY not set in .env")
 
-    # Use Google search to find Amazon reviews — free plan compatible
-    params = {
-        "engine": "google",
-        "q": f'site:amazon.in/dp/{asin} reviews',
-        "api_key": SERPAPI_KEY,
-        "num": "10",
-    }
+    # Try multiple queries from specific to broad
+    queries = [
+        f'amazon.in "{asin}" customer reviews',
+        f'site:amazon.in "{asin}" reviews',
+        f'amazon india {asin} TV review user experience',
+    ]
 
-    search = GoogleSearch(params)
-    results = search.get_dict()
+    for i, query in enumerate(queries, 1):
+        logger.info(f"SerpAPI query attempt {i}: {query}")
 
-    if "error" in results:
-        raise Exception(f"SerpAPI error: {results['error']}")
+        params = {
+            "engine": "google",
+            "q": query,
+            "api_key": SERPAPI_KEY,
+            "num": "10",
+        }
 
-    reviews = []
+        search = GoogleSearch(params)
+        results = search.get_dict()
 
-    # Pull text snippets from organic results
-    for result in results.get("organic_results", []):
-        snippet = result.get("snippet", "")
-        if snippet and len(snippet) > 30 and "amazon" in result.get("link", "").lower():
-            reviews.append(snippet.strip())
+        if "error" in results:
+            logger.warning(f"SerpAPI query {i} error: {results['error']}")
+            continue
 
-    # Also check knowledge graph / answer box
-    answer = results.get("answer_box", {}).get("snippet", "")
-    if answer and len(answer) > 30:
-        reviews.append(answer.strip())
+        reviews = []
 
-    if not reviews:
-        raise Exception("Google search returned no usable review snippets")
+        for result in results.get("organic_results", []):
+            snippet = result.get("snippet", "")
+            link = result.get("link", "")
+            # Accept snippets that contain the ASIN or are from Amazon
+            if snippet and len(snippet) > 40:
+                if asin in snippet or asin in link or "amazon" in link.lower():
+                    reviews.append(snippet.strip())
 
-    return reviews
+        # Also check answer box
+        answer = results.get("answer_box", {}).get("snippet", "")
+        if answer and len(answer) > 40:
+            reviews.append(answer.strip())
 
+        if reviews:
+            logger.info(f"SerpAPI query {i} returned {len(reviews)} snippets ✅")
+            return reviews
+
+        logger.warning(f"SerpAPI query {i} returned no usable snippets")
+
+    raise Exception("All SerpAPI query attempts returned no usable review snippets")
+
+
+# ── STRATEGY 2: Direct HTTP ───────────────────────────────────────────────────
 
 def _is_blocked(response) -> bool:
     url_str = str(response.url)
@@ -103,9 +102,12 @@ def _is_blocked(response) -> bool:
 
 def fetch_via_http(asin: str) -> list:
     url = f"https://www.amazon.in/product-reviews/{asin}?sortBy=recent&pageNumber=1"
+    logger.info(f"HTTP fetch: {url}")
+
     response = httpx.get(url, headers=_get_headers(), timeout=20, follow_redirects=True)
+
     if _is_blocked(response):
-        raise Exception("Blocked by Amazon")
+        raise Exception("Blocked by Amazon (login redirect or CAPTCHA)")
 
     soup = BeautifulSoup(response.text, "html.parser")
     reviews = []
@@ -115,9 +117,12 @@ def fetch_via_http(asin: str) -> list:
             reviews.append(text)
 
     if not reviews:
-        raise Exception("No reviews parsed from HTML")
+        raise Exception("No reviews parsed from HTML — page may be empty or blocked")
+
     return reviews
 
+
+# ── HELPERS ───────────────────────────────────────────────────────────────────
 
 FALLBACK_REVIEWS = [
     "Excellent build quality and durability, holds up well over time",
@@ -143,52 +148,54 @@ def clean_reviews(reviews: list) -> list:
     return cleaned
 
 
+# ── MAIN ──────────────────────────────────────────────────────────────────────
+
 def scrape_amazon_reviews(url: str) -> dict:
     try:
-        print("\n--- SCRAPER START ---")
-        print("Raw URL:", url)
- 
-        # Normalize the URL first
+        logger.info("=" * 50)
+        logger.info("SCRAPER START")
+        logger.info(f"Raw URL: {url[:80]}...")
+
         normalized = normalize_url(url)
         platform = normalized["platform"]
         clean_url = normalized["normalized_url"]
         asin = normalized.get("asin")
- 
-        print(f"Platform : {platform}")
-        print(f"Clean URL: {clean_url}")
-        print(f"ASIN     : {asin}")
- 
+
+        logger.info(f"Platform : {platform}")
+        logger.info(f"Clean URL: {clean_url}")
+        logger.info(f"ASIN     : {asin}")
+
         if normalized.get("error"):
-            print(f"Normalizer warning: {normalized['error']}")
- 
+            logger.warning(f"Normalizer warning: {normalized['error']}")
+
         if not asin:
             raise Exception(f"Could not extract ASIN from URL: {clean_url}")
- 
+
         reviews = []
- 
+
         # Strategy 1: SerpAPI
         try:
-            print("Trying strategy 1: SerpAPI...")
+            logger.info("Trying strategy 1: SerpAPI...")
             reviews = fetch_via_serpapi(asin)
-            print(f"SerpAPI got {len(reviews)} reviews ✅")
+            logger.info(f"SerpAPI succeeded: {len(reviews)} reviews")
         except Exception as e:
-            print(f"SerpAPI failed: {e}")
- 
+            logger.warning(f"SerpAPI failed: {e}")
+
         # Strategy 2: Direct HTTP
         if len(reviews) < 3:
             try:
-                print("Trying strategy 2: direct HTTP...")
+                logger.info("Trying strategy 2: direct HTTP...")
                 reviews = fetch_via_http(asin)
-                print(f"HTTP got {len(reviews)} reviews ✅")
+                logger.info(f"HTTP succeeded: {len(reviews)} reviews")
             except Exception as e:
-                print(f"HTTP failed: {e}")
- 
+                logger.warning(f"HTTP failed: {e}")
+
         reviews = clean_reviews(reviews)
-        print(f"Final review count: {len(reviews)}")
- 
+        logger.info(f"Final review count: {len(reviews)}")
+
         if len(reviews) < 3:
-            raise Exception("All strategies exhausted")
- 
+            raise Exception(f"All strategies exhausted — only {len(reviews)} reviews found")
+
         return {
             "title": f"ASIN: {asin}",
             "rating": "N/A",
@@ -197,10 +204,10 @@ def scrape_amazon_reviews(url: str) -> dict:
             "platform": platform,
             "normalized_url": clean_url,
         }
- 
+
     except Exception as e:
-        print("SCRAPER ERROR:", str(e))
-        print("--- USING FALLBACK DATA ---")
+        logger.error(f"SCRAPER ERROR: {e}")
+        logger.warning("Falling back to sample review data")
         return {
             "title": "Fallback Product",
             "rating": "N/A",

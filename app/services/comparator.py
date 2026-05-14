@@ -1,32 +1,21 @@
+import logging
 from app.services.llm_client import LLMClient
 
+logger = logging.getLogger(__name__)
 llm = LLMClient()
 
 
 def compare_products(main: dict, competitors: list) -> dict:
-    """
-    LLM-first comparison engine.
-
-    Delegates semantic comparison entirely to the LLM so that
-    near-duplicate phrases across main vs competitor don't bleed
-    into the wrong bucket (the old set-subtraction bug).
-
-    Args:
-        main: Output from analyzer.py — { pros, cons, use_cases }
-        competitors: List of analyzer.py outputs for competitor products
-
-    Returns:
-        dict with keys: strengths, weaknesses, shared_issues,
-                        competitor_advantages, market_gaps,
-                        positioning, summary, improvements, marketing_angles
-    """
-
+    logger.info(f"Comparing main product against {len(competitors)} competitor(s)")
     result = _llm_compare(main, competitors)
 
     if "error" in result:
+        logger.error(f"LLM comparison failed: {result['error']} — using fallback")
         return _fallback(main)
 
-    return _ensure_keys(result, main)
+    result = _ensure_keys(result, main)
+    logger.info("Comparison complete")
+    return result
 
 
 def _llm_compare(main: dict, competitors: list) -> dict:
@@ -43,14 +32,9 @@ COMPETITOR products. Your job is to identify:
 5. Market gaps nobody is solving well
 
 IMPORTANT RULES:
-- Compare SEMANTICALLY, not by exact wording. 
-  "build quality is great" and "excellent build quality and durability" 
-  are the SAME feature — do NOT list it in both strengths and weaknesses.
-- A feature that exists in BOTH main and competitors is NOT a strength 
-  of the main product — it is a shared baseline. Only list it as a strength 
-  if the main product clearly does it better.
-- Weaknesses must be things the MAIN PRODUCT is worse at, not things 
-  competitors are good at.
+- Compare SEMANTICALLY, not by exact wording.
+- A feature in BOTH main and competitors is NOT a strength — it's a baseline.
+- Weaknesses must be things the MAIN PRODUCT is worse at.
 - Be specific. Avoid generic phrases.
 
 --- MAIN PRODUCT ---
@@ -61,49 +45,33 @@ Use Cases: {main.get("use_cases", [])}
 --- COMPETITORS ---
 {_format_competitors(competitors)}
 
-Return ONLY a valid JSON object with this exact structure. No markdown, no explanation:
+Return ONLY a valid JSON object. No markdown, no explanation:
 
 {{
-  "strengths": [
-    "One-line: something the main product does genuinely better than competitors"
-  ],
-  "weaknesses": [
-    "One-line: something the main product is genuinely worse at vs competitors"
-  ],
-  "shared_issues": [
-    "One-line: a problem that exists across main AND competitors"
-  ],
-  "competitor_advantages": [
-    "One-line: a specific edge competitors have over the main product"
-  ],
-  "market_gaps": [
-    "One-line: an unmet need none of the products solve well"
-  ],
+  "strengths": ["One-line: something the main product does genuinely better"],
+  "weaknesses": ["One-line: something the main product is genuinely worse at"],
+  "shared_issues": ["One-line: a problem across main AND competitors"],
+  "competitor_advantages": ["One-line: a specific edge competitors have"],
+  "market_gaps": ["One-line: an unmet need none solve well"],
   "positioning": "One sentence: where the main product sits in the market",
   "summary": "One sentence: the overall competitive verdict",
-  "improvements": [
-    "One-line: specific improvement the main product should make"
-  ],
-  "marketing_angles": [
-    "One-line: a compelling marketing angle grounded in the data"
-  ]
+  "improvements": ["One-line: specific improvement the main product should make"],
+  "marketing_angles": ["One-line: a compelling marketing angle grounded in data"]
 }}
 
 Rules:
-- Each array must have 2–4 items.
-- strengths and weaknesses must be mutually exclusive — no item should appear in both.
+- Each array must have 2-4 items.
+- strengths and weaknesses must be mutually exclusive.
+- Never return empty strings in any field.
 - Return ONLY the JSON object.
 """
 
     return llm.generate_json(prompt)
 
 
-# ── HELPERS ──────────────────────────────────────────────────────────────────
-
 def _format_competitors(competitors: list) -> str:
     if not competitors:
         return "No competitor data provided."
-
     parts = []
     for i, comp in enumerate(competitors, 1):
         parts.append(
@@ -116,10 +84,6 @@ def _format_competitors(competitors: list) -> str:
 
 
 def _ensure_keys(result: dict, main: dict) -> dict:
-    """
-    Guarantee every key the UI expects is present.
-    Uses safe defaults rather than crashing.
-    """
     defaults = {
         "strengths": main.get("pros", [])[:2],
         "weaknesses": main.get("cons", [])[:2],
@@ -131,16 +95,14 @@ def _ensure_keys(result: dict, main: dict) -> dict:
         "improvements": [],
         "marketing_angles": [],
     }
-
     for key, default in defaults.items():
         if key not in result or not result[key]:
+            logger.warning(f"Missing key '{key}' in comparison result — using default")
             result[key] = default
-
     return result
 
 
 def _fallback(main: dict) -> dict:
-    """Hard fallback when LLM call fails entirely."""
     return {
         "strengths": main.get("pros", [])[:3],
         "weaknesses": main.get("cons", [])[:3],

@@ -1,8 +1,12 @@
+import logging
 from app.services.llm_client import LLMClient
 
+logger = logging.getLogger(__name__)
 llm = LLMClient()
 
 def analyze_reviews(reviews):
+    logger.info(f"Analyzing {len(reviews)} reviews")
+
     prompt = f"""
 You are a product intelligence expert analyzing REAL customer reviews.
 
@@ -10,7 +14,7 @@ REVIEWS:
 {reviews}
 
 STRICT PRE-FILTER — before analyzing, completely ignore any item that:
-- Contains a price (₹, $, "for", numeric value next to currency)
+- Contains a price (₹, $, numeric value next to currency)
 - Contains a star rating or score ("4.8 out of 5", "rated", "stars", "rating")
 - Contains a full product name or model number as a title
 - Mentions a different brand or product not being reviewed
@@ -47,4 +51,6 @@ BAD examples (never output these):
 - "Redmi Xiaomi offers impressive picture quality" — mentions other brand
 """
 
-    return llm.generate_json(prompt)
+    result = llm.generate_json(prompt)
+    logger.info(f"Analysis complete — pros: {len(result.get('pros', []))}, cons: {len(result.get('cons', []))}")
+    return result

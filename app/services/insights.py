@@ -1,21 +1,12 @@
+import logging
 from app.services.llm_client import LLMClient
 
+logger = logging.getLogger(__name__)
 llm = LLMClient()
 
 
 def generate_insights(main: dict, comparison: dict) -> dict:
-    """
-    Generate structured, actionable product insights from review analysis
-    and competitive comparison data.
-
-    Args:
-        main: Output from analyzer.py — { pros, cons, use_cases }
-        comparison: Output from comparator.py — { strengths, weaknesses, positioning, summary }
-
-    Returns:
-        dict with keys: improvements, marketing_angles, target_audience,
-                        key_differentiators, risk_flags, quick_wins
-    """
+    logger.info("Generating strategic insights")
 
     prompt = f"""
 You are a senior product strategist and growth consultant.
@@ -62,7 +53,7 @@ Return ONLY a valid JSON object with exactly this structure:
   ],
   "marketing_angles": [
     {{
-      "angle": "short hook or tagline",
+      "angle": "short hook or tagline — never empty",
       "rationale": "why this resonates based on review data"
     }}
   ],
@@ -89,8 +80,12 @@ Return ONLY a valid JSON object with exactly this structure:
 
 Rules:
 - Return ONLY the JSON. No markdown, no explanation, no code fences.
-- Each array must have 3–5 items.
+- Each array must have 3-5 items.
+- Never return empty strings in any field. Every field must have actual content.
+- If you cannot generate a value, skip that item entirely rather than returning empty.
 - Be specific, not generic. Avoid filler phrases like "improve quality" without context.
 """
 
-    return llm.generate_json(prompt)
+    result = llm.generate_json(prompt)
+    logger.info("Insights generation complete")
+    return result
