@@ -97,22 +97,54 @@ export default function App() {
     style.id = "ri-print-style";
     style.innerHTML = `
       @media print {
+        /* Force light mode for all elements */
+        .ri-root, .ri-wrap, body {
+          background: #ffffff !important;
+          color: #0F1A2E !important;
+        }
+        .ri-section-title {
+          color: #5A6E96 !important;
+        }
+        .ri-section-line {
+          background: #DDE5F0 !important;
+        }
+        .ri-list-card, .ri-strategy, .ri-improve-card,
+        .ri-angle-card, .ri-audience-card, .ri-risk-card,
+        .ri-win-item {
+          background: #ffffff !important;
+          color: #0F1A2E !important;
+          box-shadow: none !important;
+          border: 1px solid #DDE5F0 !important;
+          break-inside: avoid;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+        .ri-list-item, .ri-strategy-value, .ri-improve-issue,
+        .ri-angle-rationale, .ri-audience-reason, .ri-risk-mitigation {
+          color: #0F1A2E !important;
+        }
+        .ri-list-card-title { color: inherit !important; }
+        .ri-pros { background: rgba(5,150,105,0.07) !important; }
+        .ri-strengths { background: rgba(43,127,212,0.06) !important; }
+        .ri-angle-card { background: rgba(124,58,237,0.07) !important; }
+        .ri-win-item { background: rgba(5,150,105,0.07) !important; }
+        .ri-improve-action {
+          background: rgba(5,150,105,0.07) !important;
+          color: #059669 !important;
+        }
+        .ri-win-num { color: #059669 !important; }
+        .ri-angle-hook { color: #7C3AED !important; }
+        .ri-audience-segment { color: #2B7FD4 !important; }
+        .ri-diff-badge {
+          background: rgba(43,127,212,0.06) !important;
+          color: #2B7FD4 !important;
+        }
+        /* Hide UI chrome */
         .ri-header { display: none !important; }
         .ri-card { display: none !important; }
         .ri-terminal { display: none !important; }
         .ri-links { display: none !important; }
         .ri-export-row { display: none !important; }
-        .ri-section-title { color: #333 !important; -webkit-print-color-adjust: exact; }
-        .ri-list-card, .ri-strategy, .ri-improve-card,
-        .ri-angle-card, .ri-audience-card, .ri-risk-card,
-        .ri-win-item { 
-          box-shadow: none !important;
-          border: 1px solid #ddd !important;
-          break-inside: avoid;
-          -webkit-print-color-adjust: exact;
-          print-color-adjust: exact;
-        }
-        body { background: white !important; }
         .ri-root { padding: 8px 16px !important; }
         .ri-wrap { max-width: 100% !important; }
       }
