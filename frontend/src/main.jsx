@@ -4,6 +4,7 @@ import './index.css'
 import App from './App.jsx'
 import CustomerApp from './CustomerApp.jsx'
 import LandingApp from './LandingApp.jsx'
+import { Analytics } from '@vercel/analytics/react' 
 
 const path = window.location.pathname;
 
@@ -20,6 +21,7 @@ if (path === "/" || path === "") {
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
+    <Analytics /> 
     <Component />
   </StrictMode>,
 )
