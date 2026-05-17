@@ -338,6 +338,22 @@ export default function App() {
 
           {/* HEADER */}
           <div className="ri-header">
+            {/* BACK BUTTON */}
+            <button
+              onClick={() => window.location.href = "/"}
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 6,
+                background: "transparent", border: `1px solid ${t.border}`,
+                borderRadius: 8, padding: "6px 14px", fontSize: 12,
+                fontWeight: 600, color: t.textSub, cursor: "pointer",
+                fontFamily: "'Sora', sans-serif", transition: "all 0.2s",
+                position: "absolute", top: 40, left: 20,
+              }}
+              onMouseOver={e => { e.currentTarget.style.borderColor = t.accent; e.currentTarget.style.color = t.accent; }}
+              onMouseOut={e => { e.currentTarget.style.borderColor = t.border; e.currentTarget.style.color = t.textSub; }}
+            >
+              ← Home
+            </button>
             <div className="ri-logo">
               <div className="ri-logo-icon">🧠</div>
               <div>
